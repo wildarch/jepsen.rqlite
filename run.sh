@@ -7,5 +7,5 @@ vagrant up
 
 lein run -- test \
     --nodes-file nodes.txt \
-    --ssh-private-key .vagrant/machines/n1/virtualbox/private_key \
+    --ssh-private-key ./vagrant_ssh_key \
     --username vagrant

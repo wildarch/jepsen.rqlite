@@ -9,7 +9,7 @@
             [jepsen.os.debian :as debian]))
 
 (def dir "/opt/rqlite")
-(def binary "rqlite")
+(def binary "rqlited")
 (def logfile (str dir "/rqlite.log"))
 (def pidfile (str dir "/rqlite.pid"))
 
@@ -30,12 +30,17 @@
 
 (defn initial-cluster
   "Constructs an initial cluster string for a test, like
-  \"foo=foo:4002,bar=bar:4002,...\""
-  [test]
+  \"foo:4002,bar:4002,...\""
+  [test thisnode]
   (->> (:nodes test)
        (map (fn [node]
-              (str node "=" (raft-addr node))))
+              (str "http://" (http-addr node))))
        (str/join ",")))
+
+(defn data-dir
+  "The directory to keep the raft log."
+  [node]
+  (str "/tmp/node-" node))
 
 (defn db
   "Rqlite for a particular version."
@@ -52,16 +57,21 @@
            :pidfile pidfile
            :chdir dir}
           binary
-          :-http-addr (http-addr node)
-          :-raft-addr (raft-addr node)
-          :-bootstrap-expect (count (:nodes test))
-          :-join (initial-cluster test)))
+          :--http-addr (http-addr node)
+          :--raft-addr (raft-addr node)
+          :--bootstrap-expect (count (:nodes test))
+          :--join (initial-cluster test node)
+          (data-dir node)))
       (Thread/sleep 1000))
 
     (teardown! [_ test node]
       (info node "tearing down rqlite")
-      (cu/stop-daemon! binary pidfile)
-      (c/su (c/exec :rm :-rf dir)))))
+      (c/su 
+        (cu/stop-daemon! binary pidfile)
+        (c/exec :rm :-rf dir)))
+    db/LogFiles
+    (log-files [_ test node]
+      [logfile])))
 
 (defn rqlite-test
   "Given an options map from the command line runner (e.g. :nodes, :ssh,
