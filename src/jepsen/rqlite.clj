@@ -2,11 +2,16 @@
   (:require [clojure.tools.logging :refer :all]
             [clojure.string :as str]
             [jepsen [cli :as cli]
+                    [client :as client]
                     [control :as c]
                     [db :as db]
+                    [generator :as gen]
                     [tests :as tests]]
             [jepsen.control.util :as cu]
-            [jepsen.os.debian :as debian]))
+            [jepsen.os.debian :as debian]
+            [org.httpkit.client :as http])
+  (:import com.rqlite.Rqlite)
+  (:import com.rqlite.RqliteFactory))
 
 (def dir "/opt/rqlite")
 (def binary "rqlited")
@@ -73,6 +78,30 @@
     (log-files [_ test node]
       [logfile])))
 
+(defn r   [_ _] {:type :invoke, :f :read, :value nil})
+(defn w   [_ _] {:type :invoke, :f :write, :value (rand-int 5)})
+(defn cas [_ _] {:type :invoke, :f :cas, :value [(rand-int 5) (rand-int 5)]})
+
+(defn query-results-string
+  "Stringifies query results"
+  [results]
+  (map (fn [res] (.toPrettyString res)) (seq (.results results))))
+
+(defrecord Client [conn]
+  client/Client
+  (open! [this test node]
+    (assoc this :conn (RqliteFactory/connect "http" node (int 4001))))
+
+  (setup! [this test])
+
+  (invoke! [this test op]
+    (case (:f op)
+      :read (assoc op :type :ok, :value (query-results-string (.Query conn "SELECT 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))))
+
+  (teardown! [this test])
+
+  (close! [_ test]))
+
 (defn rqlite-test
   "Given an options map from the command line runner (e.g. :nodes, :ssh,
   :concurrency, ...), constructs a test map."
@@ -81,7 +110,12 @@
          {:name "rqlite"
           :os debian/os
           :db (db "v7.3.1")
-           :pure-generators true}
+          :client (Client. nil)
+          :generator       (->> r
+                                (gen/stagger 1)
+                                (gen/nemesis nil)
+                                (gen/time-limit 15))
+          :pure-generators true}
          opts))
 
 (defn -main
