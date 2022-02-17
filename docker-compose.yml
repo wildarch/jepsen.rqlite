@@ -1,0 +1,48 @@
+version: "3.7"
+#x-nodes:
+#  &default-node
+#  image: rqlite/rqlite
+#  command: ["-join", "n1:4001"]
+
+services:
+  n1:
+#    << : *default-node
+    image: debian
+    init: true
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+    ports:
+      - "4002:4001"
+  n2:
+    image: debian
+    init: true
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+    ports:
+      - "4003:4001"
+  n3:
+    image: debian
+    init: true
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+    ports:
+      - "4004:4001"
+  n4:
+    image: debian
+    init: true
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+    ports:
+      - "4005:4001"
+  n5:
+    image: debian
+    init: true
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+    ports:
+      - "4006:4001"
