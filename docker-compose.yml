@@ -1,48 +1,26 @@
 version: "3.7"
-#x-nodes:
-#  &default-node
-#  image: rqlite/rqlite
-#  command: ["-join", "n1:4001"]
+x-nodes:
+  &default-node
+  image: registry.local.actuallyruben.nl/sshserver:latest
 
 services:
   n1:
-#    << : *default-node
-    image: debian
-    init: true
-    command: ["bash"]
-    stdin_open: true
-    tty: true
-    ports:
-      - "4002:4001"
+    << : *default-node
+    hostname: n1
   n2:
-    image: debian
-    init: true
-    command: ["bash"]
-    stdin_open: true
-    tty: true
-    ports:
-      - "4003:4001"
+    << : *default-node
+    hostname: n2
   n3:
-    image: debian
-    init: true
-    command: ["bash"]
-    stdin_open: true
-    tty: true
-    ports:
-      - "4004:4001"
+    << : *default-node
+    hostname: n3
   n4:
-    image: debian
-    init: true
-    command: ["bash"]
-    stdin_open: true
-    tty: true
-    ports:
-      - "4005:4001"
+    << : *default-node
+    hostname: n4
   n5:
-    image: debian
-    init: true
-    command: ["bash"]
-    stdin_open: true
-    tty: true
-    ports:
-      - "4006:4001"
+    << : *default-node
+    hostname: n5
+
+networks:
+  default:
+    external: true
+    name: jepsen
