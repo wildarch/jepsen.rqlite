@@ -28,7 +28,7 @@
   [node]
   (node-addr node 4002))
 
-(defn http-addr 
+(defn http-addr
   "The HTTP url clients use to talk to a node."
   [node]
   (node-addr node 4001))
@@ -54,7 +54,7 @@
     (setup! [_ test node]
       (info node "installing rqlite" version)
       (c/su
-        (let [url (str "https://github.com/rqlite/rqlite/releases/download/" version 
+        (let [url (str "https://github.com/rqlite/rqlite/releases/download/" version
                        "/rqlite-" version "-linux-amd64.tar.gz")]
           (cu/install-archive! url dir))
         (cu/start-daemon!
@@ -71,7 +71,7 @@
 
     (teardown! [_ test node]
       (info node "tearing down rqlite")
-      (c/su 
+      (c/su
         (cu/stop-daemon! binary pidfile)
         (c/exec :rm :-rf dir)))
     db/LogFiles

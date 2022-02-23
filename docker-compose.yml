@@ -1,0 +1,26 @@
+version: "3.7"
+x-nodes:
+  &default-node
+  image: registry.local.actuallyruben.nl/sshserver:latest
+
+services:
+  n1:
+    << : *default-node
+    hostname: n1
+  n2:
+    << : *default-node
+    hostname: n2
+  n3:
+    << : *default-node
+    hostname: n3
+  n4:
+    << : *default-node
+    hostname: n4
+  n5:
+    << : *default-node
+    hostname: n5
+
+networks:
+  default:
+    external: true
+    name: jepsen
