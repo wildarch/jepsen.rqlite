@@ -4,8 +4,8 @@
   :license {:name "The MIT License"
             :url  "http://opensource.org/licenses/MIT"}
   :main jepsen.rqlite
-  :dependencies [[org.clojure/clojure "1.10.0"]
-                 [jepsen "0.2.1-SNAPSHOT"]
+  :dependencies [[org.clojure/clojure "1.10.3"]
+                 [jepsen "0.2.6"]
                  [http-kit "2.3.0"]
                  [com.github.rqlite/rqlite-java "master"]]
   ; For some weird reason, this fails the first time. 
