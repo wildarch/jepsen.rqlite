@@ -8,6 +8,7 @@
                     [db :as db]
                     [generator :as gen]
                     [tests :as tests]]
+            [jepsen.checker.timeline :as timeline]
             [jepsen.rqlite.register :as register]
             [jepsen.control.util :as cu]
             [jepsen.os.debian :as debian]
@@ -81,7 +82,7 @@
     (log-files [_ test node]
       [logfile])))
 
-(defn r   [_ _] {:type :invoke, :f :read, :value nil})
+(defn r   [_ _] {:type :invoke, :f :read, :value 0})
 (defn w   [_ _] {:type :invoke, :f :write, :value (rand-int 5)})
 (defn cas [_ _] {:type :invoke, :f :cas, :value [(rand-int 5) (rand-int 5)]})
 
@@ -133,7 +134,6 @@
       )
       ;:read (assoc op :type :ok, :value (query-value (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))
       :write (do 
-        (println "Value for OP: " (:value op))
         (.Execute conn (str 
           "update test set val = " 
           (:value op)
@@ -173,13 +173,16 @@
           :os debian/os
           :db (db "v7.3.1")
           :client (Client. (atom false) nil)
-          :checker         (checker/linearizable
-                             {:model     (model/cas-register)
-                              :algorithm :linear})
+          :checker (checker/compose
+                     {:perf   (checker/perf)
+                      :linear (checker/linearizable
+                                {:model     (model/cas-register)
+                                 :algorithm :linear})
+                      :timeline (timeline/html)})
           :generator       (->> (gen/mix [r w cas])
-                                (gen/stagger 1)
+                                (gen/stagger 1/50)
                                 (gen/nemesis nil)
-                                (gen/time-limit 15))
+                                (gen/time-limit 30))
           :pure-generators true}
          opts))
 
