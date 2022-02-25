@@ -7,6 +7,7 @@
                     [control :as c]
                     [db :as db]
                     [generator :as gen]
+                    [nemesis :as nemesis]
                     [tests :as tests]]
             [jepsen.checker.timeline :as timeline]
             [jepsen.rqlite.register :as register]
@@ -173,6 +174,7 @@
           :os debian/os
           :db (db "v7.3.1")
           :client (Client. (atom false) nil)
+          ;:nemesis         (nemesis/partition-random-halves)
           :checker (checker/compose
                      {:perf   (checker/perf)
                       :linear (checker/linearizable
@@ -182,7 +184,7 @@
           :generator       (->> (gen/mix [r w cas])
                                 (gen/stagger 1/50)
                                 (gen/nemesis nil)
-                                (gen/time-limit 5))
+                                (gen/time-limit 30))
           :pure-generators true}
          opts))
 
