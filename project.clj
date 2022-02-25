@@ -6,6 +6,7 @@
   :main jepsen.rqlite
   :dependencies [[org.clojure/clojure "1.10.3"]
                  [jepsen "0.2.6"]
+                 [knossos "0.3.8"]
                  [com.github.rqlite/rqlite-java "master"]]
   ; For some weird reason, this fails the first time. 
   ; Rerun and it will work!

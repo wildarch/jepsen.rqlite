@@ -1,7 +1,8 @@
 (ns jepsen.rqlite
   (:require [clojure.tools.logging :refer :all]
             [clojure.string :as str]
-            [jepsen [cli :as cli]
+            [jepsen [checker :as checker]
+                    [cli :as cli]
                     [client :as client]
                     [control :as c]
                     [db :as db]
@@ -9,9 +10,11 @@
                     [tests :as tests]]
             [jepsen.rqlite.register :as register]
             [jepsen.control.util :as cu]
-            [jepsen.os.debian :as debian])
+            [jepsen.os.debian :as debian]
+            [knossos.model :as model])
   (:import com.rqlite.Rqlite)
-  (:import com.rqlite.RqliteFactory))
+  (:import com.rqlite.RqliteFactory)
+  (:import (knossos.model Model)))
 
 (def dir "/opt/rqlite")
 (def binary "rqlited")
@@ -105,6 +108,7 @@
 (defrecord Client [tbl-created? conn]
   client/Client
   (open! [this test node]
+    (Thread/sleep 1000)
     (assoc this :conn (RqliteFactory/connect "http" node (int 4001))))
 
   (setup! [this test]
@@ -121,7 +125,13 @@
 
   (invoke! [this test op]
     (case (:f op)
-      :read (assoc op :type :ok, :value (query-value (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))
+      :read (let [
+          results 
+          (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)
+        ]
+        (assoc op :type :ok, :value (query-value results))
+      )
+      ;:read (assoc op :type :ok, :value (query-value (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))
       :write (do 
         (println "Value for OP: " (:value op))
         (.Execute conn (str 
@@ -141,7 +151,7 @@
           ))
         ]
         (assoc op :type (if
-          (.-rowsAffected (first (.-results results)))
+          (== 1 (.-rowsAffected (first (.-results results))))
           :ok
           :fail
         ))
@@ -163,6 +173,9 @@
           :os debian/os
           :db (db "v7.3.1")
           :client (Client. (atom false) nil)
+          :checker         (checker/linearizable
+                             {:model     (model/cas-register)
+                              :algorithm :linear})
           :generator       (->> (gen/mix [r w cas])
                                 (gen/stagger 1)
                                 (gen/nemesis nil)
