@@ -2,13 +2,13 @@
   (:require [clojure.tools.logging :refer :all]
             [clojure.string :as str]
             [jepsen [checker :as checker]
-                    [cli :as cli]
-                    [client :as client]
-                    [control :as c]
-                    [db :as db]
-                    [generator :as gen]
-                    [nemesis :as nemesis]
-                    [tests :as tests]]
+             [cli :as cli]
+             [client :as client]
+             [control :as c]
+             [db :as db]
+             [generator :as gen]
+             [nemesis :as nemesis]
+             [tests :as tests]]
             [jepsen.checker.timeline :as timeline]
             [jepsen.rqlite.register :as register]
             [jepsen.control.util :as cu]
@@ -59,26 +59,26 @@
     (setup! [_ test node]
       (info node "installing rqlite" version)
       (c/su
-        (let [url (str "https://github.com/rqlite/rqlite/releases/download/" version
-                       "/rqlite-" version "-linux-amd64.tar.gz")]
-          (cu/install-archive! url dir))
-        (cu/start-daemon!
-          {:logfile logfile
-           :pidfile pidfile
-           :chdir dir}
-          binary
-          :--http-addr (http-addr node)
-          :--raft-addr (raft-addr node)
-          :--bootstrap-expect (count (:nodes test))
-          :--join (initial-cluster test node)
-          (data-dir node)))
+       (let [url (str "https://github.com/rqlite/rqlite/releases/download/" version
+                      "/rqlite-" version "-linux-amd64.tar.gz")]
+         (cu/install-archive! url dir))
+       (cu/start-daemon!
+        {:logfile logfile
+         :pidfile pidfile
+         :chdir dir}
+        binary
+        :--http-addr (http-addr node)
+        :--raft-addr (raft-addr node)
+        :--bootstrap-expect (count (:nodes test))
+        :--join (initial-cluster test node)
+        (data-dir node)))
       (Thread/sleep 1000))
 
     (teardown! [_ test node]
       (info node "tearing down rqlite")
       (c/su
-        (cu/stop-daemon! binary pidfile)
-        (c/exec :rm :-rf dir)))
+       (cu/stop-daemon! binary pidfile)
+       (c/exec :rm :-rf dir)))
     db/LogFiles
     (log-files [_ test node]
       [logfile])))
@@ -98,14 +98,10 @@
   ; Coerce to integer
   (int
     ; First value
-    (first
+   (first
       ; First row
-      (first
-        (.-values (first (.-results results)))
-      )
-    )
-  )
-)
+    (first
+     (.-values (first (.-results results)))))))
 
 (defrecord Client [tbl-created? conn]
   client/Client
@@ -120,46 +116,32 @@
         (.Execute conn "drop table if exists test")
         (Thread/sleep 1000)
         (.Execute conn "create table test (id int primary key, val int)")
-        (.Execute conn "insert into test values (1, 0)")
-      )
-    )
-  )
+        (.Execute conn "insert into test values (1, 0)"))))
 
   (invoke! [this test op]
     (case (:f op)
-      :read (let [
-          results 
-          (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)
-        ]
-        (assoc op :type :ok, :value (query-value results))
-      )
+      :read (let [results
+                  (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)]
+              (assoc op :type :ok, :value (query-value results)))
       ;:read (assoc op :type :ok, :value (query-value (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))
-      :write (do 
-        (.Execute conn (str 
-          "update test set val = " 
-          (:value op)
-          " WHERE id = 1"
-          )
-        )
-        (assoc op :type :ok)
-      )
+      :write (do
+               (.Execute conn (str
+                               "update test set val = "
+                               (:value op)
+                               " WHERE id = 1"))
+
+               (assoc op :type :ok))
       :cas (let [[old new] (:value op)]
-        (let [results (.Execute conn (str
-            "update test set val = "
-            new
-            " WHERE id = 1 AND val = "
-            old
-          ))
-        ]
-        (assoc op :type (if
-          (== 1 (.-rowsAffected (first (.-results results))))
-          :ok
-          :fail
-        ))
-        )
-      )
-    )
-  )
+             (let [results (.Execute conn (str
+                                           "update test set val = "
+                                           new
+                                           " WHERE id = 1 AND val = "
+                                           old))]
+
+               (assoc op :type (if
+                                (== 1 (.-rowsAffected (first (.-results results))))
+                                 :ok
+                                 :fail))))))
 
   (teardown! [this test])
 
@@ -174,21 +156,21 @@
           :os debian/os
           :db (db "v7.3.1")
           :client (Client. (atom false) nil)
-          ;:nemesis         (nemesis/partition-random-halves)
+          :nemesis         (nemesis/partition-random-halves)
           :checker (checker/compose
-                     {:perf   (checker/perf)
-                      :linear (checker/linearizable
-                                {:model     (model/cas-register 0)
-                                 :algorithm :linear})
-                      :timeline (timeline/html)})
+                    {:perf   (checker/perf)
+                     :linear (checker/linearizable
+                              {:model     (model/cas-register 0)
+                               :algorithm :linear})
+                     :timeline (timeline/html)})
           :generator       (->> (gen/mix [r w cas])
                                 (gen/stagger 1/50)
                                 (gen/nemesis nil)
                                 (gen/nemesis
-                                  (cycle [(gen/sleep 5)
-                                    {:type :info, :f :start}
-                                    (gen/sleep 5)
-                                    {:type :info, :f :stop}]))
+                                 (cycle [(gen/sleep 5)
+                                         {:type :info, :f :start}
+                                         (gen/sleep 5)
+                                         {:type :info, :f :stop}]))
                                 (gen/time-limit 30))
           :pure-generators true}
          opts))
