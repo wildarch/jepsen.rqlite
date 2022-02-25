@@ -6,6 +6,6 @@ set -e
 vagrant up
 
 lein run -- test \
-    --nodes-file nodes.txt \
+    --nodes-file nodes-vagrant.txt \
     --ssh-private-key ./vagrant_ssh_key \
     --username vagrant

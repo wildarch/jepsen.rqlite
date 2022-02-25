@@ -7,9 +7,9 @@
                     [db :as db]
                     [generator :as gen]
                     [tests :as tests]]
+            [jepsen.rqlite.register :as register]
             [jepsen.control.util :as cu]
-            [jepsen.os.debian :as debian]
-            [org.httpkit.client :as http])
+            [jepsen.os.debian :as debian])
   (:import com.rqlite.Rqlite)
   (:import com.rqlite.RqliteFactory))
 
@@ -87,16 +87,68 @@
   [results]
   (map (fn [res] (.toPrettyString res)) (seq (.results results))))
 
-(defrecord Client [conn]
+(defn query-value
+  "Extracts the value returned from the query"
+  [results]
+  ; Coerce to integer
+  (int
+    ; First value
+    (first
+      ; First row
+      (first
+        (.-values (first (.-results results)))
+      )
+    )
+  )
+)
+
+(defrecord Client [tbl-created? conn]
   client/Client
   (open! [this test node]
     (assoc this :conn (RqliteFactory/connect "http" node (int 4001))))
 
-  (setup! [this test])
+  (setup! [this test]
+    (locking tbl-created?
+      (when (compare-and-set! tbl-created? false true)
+        (Thread/sleep 1000)
+        (.Execute conn "drop table if exists test")
+        (Thread/sleep 1000)
+        (.Execute conn "create table test (id int primary key, val int)")
+        (.Execute conn "insert into test values (1, 0)")
+      )
+    )
+  )
 
   (invoke! [this test op]
     (case (:f op)
-      :read (assoc op :type :ok, :value (query-results-string (.Query conn "SELECT 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))))
+      :read (assoc op :type :ok, :value (query-value (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))
+      :write (do 
+        (println "Value for OP: " (:value op))
+        (.Execute conn (str 
+          "update test set val = " 
+          (:value op)
+          " WHERE id = 1"
+          )
+        )
+        (assoc op :type :ok)
+      )
+      :cas (let [[old new] (:value op)]
+        (let [results (.Execute conn (str
+            "update test set val = "
+            new
+            " WHERE id = 1 AND val = "
+            old
+          ))
+        ]
+        (assoc op :type (if
+          (.-rowsAffected (first (.-results results)))
+          :ok
+          :fail
+        ))
+        )
+      )
+    )
+  )
 
   (teardown! [this test])
 
@@ -110,8 +162,8 @@
          {:name "rqlite"
           :os debian/os
           :db (db "v7.3.1")
-          :client (Client. nil)
-          :generator       (->> r
+          :client (Client. (atom false) nil)
+          :generator       (->> (gen/mix [r w cas])
                                 (gen/stagger 1)
                                 (gen/nemesis nil)
                                 (gen/time-limit 15))
