@@ -109,7 +109,7 @@
 (defrecord Client [tbl-created? conn]
   client/Client
   (open! [this test node]
-    (Thread/sleep 1000)
+    (Thread/sleep 3000)
     (assoc this :conn (RqliteFactory/connect "http" node (int 4001))))
 
   (setup! [this test]
@@ -176,13 +176,13 @@
           :checker (checker/compose
                      {:perf   (checker/perf)
                       :linear (checker/linearizable
-                                {:model     (model/cas-register)
+                                {:model     (model/cas-register 0)
                                  :algorithm :linear})
                       :timeline (timeline/html)})
           :generator       (->> (gen/mix [r w cas])
                                 (gen/stagger 1/50)
                                 (gen/nemesis nil)
-                                (gen/time-limit 30))
+                                (gen/time-limit 5))
           :pure-generators true}
          opts))
 
