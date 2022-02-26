@@ -119,29 +119,32 @@
         (.Execute conn "insert into test values (1, 0)"))))
 
   (invoke! [this test op]
-    (case (:f op)
-      :read (let [results
-                  (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)]
-              (assoc op :type :ok, :value (query-value results)))
-      ;:read (assoc op :type :ok, :value (query-value (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))
-      :write (do
-               (.Execute conn (str
-                               "update test set val = "
-                               (:value op)
-                               " WHERE id = 1"))
+    (try
+      (case (:f op)
+        :read (let [results
+                    (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)]
+                (assoc op :type :ok, :value (query-value results)))
+        :write (do
+                 (.Execute conn (str
+                                 "update test set val = "
+                                 (:value op)
+                                 " WHERE id = 1"))
 
-               (assoc op :type :ok))
-      :cas (let [[old new] (:value op)]
-             (let [results (.Execute conn (str
-                                           "update test set val = "
-                                           new
-                                           " WHERE id = 1 AND val = "
-                                           old))]
+                 (assoc op :type :ok))
+        :cas (let [[old new] (:value op)]
+               (let [results (.Execute conn (str
+                                             "update test set val = "
+                                             new
+                                             " WHERE id = 1 AND val = "
+                                             old))]
 
-               (assoc op :type (if
-                                (== 1 (.-rowsAffected (first (.-results results))))
-                                 :ok
-                                 :fail))))))
+                 (assoc op :type (if
+                                  (== 1 (.-rowsAffected (first (.-results results))))
+                                   :ok
+                                   :fail)))))
+
+      (catch com.rqlite.NodeUnavailableException e
+        (assoc op :type :fail , :error :not-found))))
 
   (teardown! [this test])
 
@@ -165,7 +168,6 @@
                      :timeline (timeline/html)})
           :generator       (->> (gen/mix [r w cas])
                                 (gen/stagger 1/50)
-                                (gen/nemesis nil)
                                 (gen/nemesis
                                  (cycle [(gen/sleep 5)
                                          {:type :info, :f :start}
