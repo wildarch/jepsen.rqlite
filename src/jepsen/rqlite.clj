@@ -2,16 +2,18 @@
   (:require [clojure.tools.logging :refer :all]
             [clojure.string :as str]
             [jepsen [cli :as cli]
-                    [client :as client]
-                    [control :as c]
-                    [db :as db]
-                    [generator :as gen]
-                    [tests :as tests]]
+             [client :as client]
+             [control :as c]
+             [db :as db]
+             [generator :as gen]
+             [tests :as tests]]
             [jepsen.control.util :as cu]
             [jepsen.os.debian :as debian]
             [org.httpkit.client :as http])
   (:import com.rqlite.Rqlite)
-  (:import com.rqlite.RqliteFactory))
+  (:import com.rqlite.RqliteFactory
+           (com.rqlite.dto QueryResults)
+           (com.rqlite Rqlite$ReadConsistencyLevel)))
 
 (def dir "/opt/rqlite")
 (def binary "rqlited")
@@ -60,14 +62,14 @@
         (cu/start-daemon!
           {:logfile logfile
            :pidfile pidfile
-           :chdir dir}
+           :chdir   dir}
           binary
           :--http-addr (http-addr node)
           :--raft-addr (raft-addr node)
           :--bootstrap-expect (count (:nodes test))
           :--join (initial-cluster test node)
           (data-dir node)))
-      (Thread/sleep 1000))
+      (Thread/sleep 5000))
 
     (teardown! [_ test node]
       (info node "tearing down rqlite")
@@ -78,14 +80,24 @@
     (log-files [_ test node]
       [logfile])))
 
-(defn r   [_ _] {:type :invoke, :f :read, :value nil})
-(defn w   [_ _] {:type :invoke, :f :write, :value (rand-int 5)})
+(defn r [_ _] {:type :invoke, :f :read, :value nil})
+(defn w [_ _] {:type :invoke, :f :write, :value (rand-int 5)})
 (defn cas [_ _] {:type :invoke, :f :cas, :value [(rand-int 5) (rand-int 5)]})
 
 (defn query-results-string
   "Stringifies query results"
   [results]
   (map (fn [res] (.toPrettyString res)) (seq (.results results))))
+
+(defn query-results-value
+  "Returns the only value returned from the query"
+  [results]
+  (do (assert (instance? QueryResults results))
+      (->> (.-results results)
+           first
+           .-values
+           first
+           first)))
 
 (defrecord Client [conn]
   client/Client
@@ -96,7 +108,9 @@
 
   (invoke! [this test op]
     (case (:f op)
-      :read (assoc op :type :ok, :value (query-results-string (.Query conn "SELECT 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))))
+      :read (assoc op :type :ok, :value (query-results-value (.Query conn "SELECT 1" Rqlite$ReadConsistencyLevel/STRONG)))
+      :write (do (.Execute conn "INSERT ")
+                 (assoc op :type :ok))))
 
   (teardown! [this test])
 
@@ -107,21 +121,28 @@
   :concurrency, ...), constructs a test map."
   [opts]
   (merge tests/noop-test
-         {:name "rqlite"
-          :os debian/os
-          :db (db "v7.3.1")
-          :client (Client. nil)
-          :generator       (->> r
-                                (gen/stagger 1)
-                                (gen/nemesis nil)
-                                (gen/time-limit 15))
-          :pure-generators true}
-         opts))
+         opts
+         {:name      "rqlite"
+          :os        ubuntu/os
+          :db        (db "v7.3.1")
+          :client    (:client (:client opts))
+          :generator (gen/phases
+                       (->> (:during (:client opts))
+                            (gen/nemesis nil)
+                            (gen/time-limit (:time-limit opts)))
+                       (gen/sleep (:recovery-time opts))
+                       (gen/clients (:final (:client opts))))}))
 
-(defn -main
-  "Handles command line arguments. Can either run a test, or a web server for
-  browsing results."
-  [& args]
-  (cli/run! (merge (cli/single-test-cmd {:test-fn rqlite-test})
-                   (cli/serve-cmd))
-            args))
+;:generator (->> r
+;                (gen/stagger 1)
+;                (gen/nemesis nil)
+;                (gen/time-limit 15))}))
+
+;
+;(defn -main
+;  "Handles command line arguments. Can either run a test, or a web server for
+;  browsing results."
+;  [& args]
+;  (cli/run! (merge (cli/single-test-cmd {:test-fn rqlite-test})
+;                   (cli/serve-cmd))
+;            args))
