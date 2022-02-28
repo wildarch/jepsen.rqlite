@@ -13,5 +13,6 @@
   :repositories [["jitpack" "https://jitpack.io"]]
   :repl-options {:init-ns jepsen.rqlite}
   :aot [jepsen.rqlite
+        jepsen.rqlite.register
         clojure.tools.logging.impl]
   :plugins [[lein-cljfmt "0.8.0"]])
