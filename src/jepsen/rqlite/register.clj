@@ -49,7 +49,12 @@
       (case (:f op)
         :read (let [results
                     (.Query conn "SELECT val from test where id = 1" com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)]
-                (assoc op :type :ok, :value (query-value results)))
+                (try
+                  (assoc op :type :ok, :value (query-value results))
+                  (catch java.lang.NullPointerException e
+                    (error "Failed to read query value")
+                    (assoc op :type :fail))))
+
         :write (do
                  (.Execute conn (str
                                  "update test set val = "
@@ -64,10 +69,15 @@
                                              " WHERE id = 1 AND val = "
                                              old))]
 
-                 (assoc op :type (if
-                                  (== 1 (.-rowsAffected (first (.-results results))))
-                                   :ok
-                                   :fail)))))
+                 (try
+                   (assoc op :type (if
+                                    (== 1 (.-rowsAffected (first (.-results results))))
+                                     :ok
+                                     :fail))
+
+                   (catch java.lang.NullPointerException e
+                     (error "Failed to get number of changed rows")
+                     (assoc op :type :info :error :no-results))))))
 
       (catch com.rqlite.NodeUnavailableException e
         (assoc op :type :fail , :error :not-found))))
