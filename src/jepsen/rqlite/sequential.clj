@@ -75,20 +75,17 @@
   in the given atom, wrapping a PersistentQueue."
   [last-written]
   (let [k (atom -1)]
-    (reify gen/Generator
-      (op [this test process]
-        (let [k (swap! k inc)]
-          (swap! last-written #(-> % pop (conj k)))
-          [{:type :invoke, :f :write, :value k} this])))))
+    (fn []
+      (let [k (swap! k inc)]
+        (swap! last-written #(-> % pop (conj k)))
+        {:type :invoke, :f :write, :value k}))))
 
 (defn reads
   "We use the last-written atom to perform a read of a randomly selected
   recently written value."
   [last-written]
   (gen/filter (comp complement nil? :value)
-              (reify gen/Generator
-                (op [this test process]
-                  [{:type :invoke, :f :read, :value (rand-nth @last-written)} this]))))
+              (fn [] {:type :invoke, :f :read, :value (rand-nth @last-written)})))
 
 (defn gen
   "Basic generator with n writers, and a buffer of 2n"
@@ -130,7 +127,7 @@
 
 (defn sequential-test
   [opts]
-  (let [gen (gen 10)
+  (let [gen (gen 4)
         keyrange (atom 0)]
     (rqlite/rqlite-test
       (merge

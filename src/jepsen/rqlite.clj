@@ -126,6 +126,7 @@
           :os        ubuntu/os
           :db        (db "v7.3.1")
           :client    (:client (:client opts))
+          :pure-generators true
           :generator (gen/phases
                        (->> (:during (:client opts))
                             (gen/nemesis nil)

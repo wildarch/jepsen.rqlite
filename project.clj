@@ -6,7 +6,7 @@
   :main jepsen.rqlite.sequential
   :dependencies [[org.clojure/clojure "1.10.3"]
                  [jepsen "0.2.6"]
-                 [http-kit "2.3.0"]
+                 [http-kit "2.5.3"]
                  [com.github.rqlite/rqlite-java "master"]
                  [cheshire "5.10.2"]]
   ; For some weird reason, this fails the first time. 
