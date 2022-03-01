@@ -19,6 +19,18 @@ services:
   n5:
     << : *default-node
     hostname: n5
+  n6:
+    << : *default-node
+    hostname: n5
+  n7:
+    << : *default-node
+    hostname: n5
+  n8:
+    << : *default-node
+    hostname: n5
+  n9:
+    << : *default-node
+    hostname: n5
 
 networks:
   default:
