@@ -1,4 +1,5 @@
 (ns jepsen.rqlite
+<<<<<<< Updated upstream
   (:require [clojure.tools.logging :refer :all]
             [clojure.string :as str]
             [jepsen [cli :as cli]
@@ -117,11 +118,19 @@
                                 (gen/time-limit 15))
           :pure-generators true}
          opts))
+=======
+  (:require [jepsen [cli :as cli]]
+            [jepsen.rqlite.comments :as comments]))
+>>>>>>> Stashed changes
 
 (defn -main
   "Handles command line arguments. Can either run a test, or a web server for
   browsing results."
   [& args]
+<<<<<<< Updated upstream
   (cli/run! (merge (cli/single-test-cmd {:test-fn rqlite-test})
+=======
+  (cli/run! (merge (cli/single-test-cmd {:test-fn comments/test})
+>>>>>>> Stashed changes
                    (cli/serve-cmd))
             args))
