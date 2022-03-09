@@ -20,6 +20,7 @@
                     [reconnect :as rc]
                     [nemesis :as nemesis]]
             [jepsen.rqlite.common :as rqlite]
+
             [clojure.core.reducers :as r]
             [clojure.set :as set]
             [clojure.tools.logging :refer :all]
@@ -50,11 +51,11 @@
        (map (fn [k] {:type :invoke, :f :write, :value k}))
        ))
 
-(defrecord Client [table-count table-created? conn]
-  client/Client
+(defrecord Client [table-count table-created? client]
+  jepsen.client/Client
 
   (open! [this test node]
-    (assoc this :conn (RqliteFactory/connect "http" node (int 4001))))
+    (assoc this :client (RqliteFactory/connect "http" node (int 4001))))
 
   (setup! [this test]
     (Thread/sleep 2000)
@@ -62,23 +63,27 @@
      (when (compare-and-set! table-created? false true)
             (info "Creating tables")
             (doseq [t (table-names table-count)]
-            (.Execute conn [(str "create table " t
+            (.Execute client [(str "create table " t
                                     " (id int primary key,
                                          key int)")])
             (info "Created table" ) ))))
 
+  "A keyrange is used to track which keys a test is using, so we can split
+  them. This function takes a test and updates its :keyrange atom to include
+  the given table and key."
   (invoke! [this test op]
     (try
         (case (:f op)
               :write (let [[k id] (:value op)
                            table (id->table table-count id)]
-                       (.Execute conn (str "INSERT INTO " table " VALUES ('" k "')"))
+                       (.Execute client (str "INSERT INTO " table " VALUES ('" k "')"))
+
                        (assoc op :type :ok))
 
               :read
                       (->> (table-names table-count)
                            (mapcat (fn [table]
-                                     (.Execute conn [(str "select id from "
+                                     (.Execute client [(str "select id from "
                                                       table
                                                       " where key = ?")
                                                  (key (:value op))] )))
@@ -92,7 +97,9 @@
   (teardown! [this test]
     nil)
 
-  (close! [_ test]))
+  (close! [this test]
+    (rc/close! client)))
+
 
 (defn test
   [opts]
