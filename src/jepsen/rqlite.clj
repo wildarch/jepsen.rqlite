@@ -1,6 +1,7 @@
 (ns jepsen.rqlite
   (:require [jepsen [cli :as cli]]
-            [jepsen.rqlite.register :as register]))
+            [jepsen.rqlite.register :as register]
+            [jepsen.rqlite.comments :as comments]))
 
 (def cli-opts
   "Additional command line options."
@@ -26,7 +27,7 @@
   "Handles command line arguments. Can either run a test, or a web server for
   browsing results."
   [& args]
-  (cli/run! (merge (cli/single-test-cmd {:test-fn register/test
+  (cli/run! (merge (cli/single-test-cmd {:test-fn comments/test
                                          :opt-spec cli-opts})
                    (cli/serve-cmd))
             args))
