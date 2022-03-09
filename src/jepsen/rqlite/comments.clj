@@ -60,9 +60,9 @@
       (when (compare-and-set! table-created? false true)
         (info "Creating tables")
         (doseq [t (table-names table-count)]
-          (.Execute client [(str "create table " t
-                                 " (id int primary key,
-                                           key int)")])
+          (.Execute client (str "create table " t
+                                " (id int primary key,
+                                           key int)"))
           (info "Created table")))))
 
     ;; A keyrange is used to track which keys a test is using, so we can split
@@ -93,23 +93,24 @@
   (teardown! [this test]
     nil)
 
-  (close! [this test]
-    (rc/close! client)))
+  (close! [_ test]
+    nil))
 
 (defn test
+  "Given an options map from the command line runner (e.g. :nodes, :ssh,
+  :concurrency, ...), constructs a test map."
   [opts]
   (let [reads (reads)
         writes (writes)]
-    (rqlite/basic-test
-     (merge
-      {:name   "comments"
-       :client {:client (Client. 10 (atom false) nil)
-                :during (independent/concurrent-generator
-                         (count (:nodes opts))
-                         (range)
-                         (fn [k]
-                           (->> (gen/mix [reads writes])
-                                (gen/stagger 1/100)
-                                (gen/limit 500))))
-                :final  nil}}
-      opts))))
+    (merge rqlite/basic-test
+           {:name "comments"
+            :client (Client. 5 (atom false) nil)
+            :generator  (->> (independent/concurrent-generator
+                              5
+                              (range)
+                              (fn [k]
+                                (->> (gen/mix [reads writes])
+                                     (gen/stagger 1/100)
+                                     (gen/limit 100))))
+                             (gen/time-limit 30))}
+           opts)))
