@@ -117,11 +117,19 @@
                                 (gen/time-limit 15))
           :pure-generators true}
          opts))
+ 
+  (:require [jepsen [cli :as cli]]
+            [jepsen.rqlite.comments :as comments]))
+ 
 
 (defn -main
   "Handles command line arguments. Can either run a test, or a web server for
   browsing results."
   [& args]
+ 
   (cli/run! (merge (cli/single-test-cmd {:test-fn rqlite-test})
+ 
+  (cli/run! (merge (cli/single-test-cmd {:test-fn comments/test})
+ 
                    (cli/serve-cmd))
             args))
