@@ -13,7 +13,7 @@ Vagrant.configure("2") do |config|
     SHELL
   end
 
-  nodes = 2
+  nodes = 5
 
   (1..nodes).each do |n|
     nid = "n#{n}"
