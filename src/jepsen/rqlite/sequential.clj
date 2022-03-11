@@ -136,20 +136,20 @@
   [opts]
   (let [gen (gen 4)
         keyrange (atom 0)]
-    (rqlite/basic-test
-      (merge
-        opts
-        {:name      "sequential"
-         :key-count 5
-         :keyrange  keyrange
-         :client    (Client. 10 (atom false) nil)
-         :generator (gen/phases
-                      (->> (gen/stagger 1/100 gen)
-                           (gen/nemesis nil)
-                           (gen/time-limit (:time-limit opts)))
-                      (gen/sleep (:recovery-time opts))
-                      (gen/clients nil))
-         :checker   (checker/compose
-                      {:perf       (checker/perf)
-                       :sequential (checker)})}))))
+    (merge
+      rqlite/basic-test
+      {:name      "sequential"
+       :key-count 5
+       :keyrange  keyrange
+       :client    (Client. 10 (atom false) nil)
+       :generator (gen/phases
+                    (->> (gen/stagger 1/100 gen)
+                         (gen/nemesis nil)
+                         (gen/time-limit (:time-limit opts)))
+                    (gen/sleep (:recovery-time opts))
+                    (gen/clients nil))
+       :checker   (checker/compose
+                    {:perf       (checker/perf)
+                     :sequential (checker)})}
+      opts)))
 
