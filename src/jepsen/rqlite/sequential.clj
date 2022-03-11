@@ -4,16 +4,10 @@
             [jepsen.generator :as gen]
             [clojure.core.reducers :as r]
             [knossos.op :as op]
-            [jepsen.rqlite.common :as rqlite]
-            [jepsen.cli :as cli]
-            [jepsen.tests :as tests]
-            [jepsen.os.debian :as debian]
-            [jepsen.os.ubuntu :as ubuntu])
-  (:import com.rqlite.Rqlite)
+            [jepsen.rqlite.common :as rqlite])
   (:import com.rqlite.RqliteFactory
            (com.rqlite.dto QueryResults)
            (com.rqlite Rqlite$ReadConsistencyLevel)
-           (jepsen.generator Generator)
            (clojure.lang PersistentQueue)))
 
 ; Code adapted from the sequential test for CockroachDB from:
@@ -138,38 +132,23 @@
          :bad-count  (count bad)
          :bad        bad}))))
 
-(defn rqlite-test
-  "Given an options map from the command line runner (e.g. :nodes, :ssh,
-  :concurrency, ...), constructs a test map."
-  [opts]
-  (merge tests/noop-test
-         opts
-         {:name            "rqlite"
-          :os              debian/os
-          :db              (rqlite/db "v7.3.1")
-          :client          (:client (:client opts))
-          :pure-generators true
-          :generator       (gen/phases
-                             (->> (:during (:client opts))
-                                  (gen/nemesis nil)
-                                  (gen/time-limit (:time-limit opts)))
-                             (gen/sleep (:recovery-time opts))
-                             (gen/clients (:final (:client opts))))}))
-
-
 (defn sequential-test
   [opts]
   (let [gen (gen 4)
         keyrange (atom 0)]
-    (rqlite-test
+    (rqlite/basic-test
       (merge
         opts
         {:name      "sequential"
          :key-count 5
          :keyrange  keyrange
-         :client    {:client (Client. 10 (atom false) nil)
-                     :during (gen/stagger 1/100 gen)
-                     :final  nil}
+         :client    (Client. 10 (atom false) nil)
+         :generator (gen/phases
+                      (->> (gen/stagger 1/100 gen)
+                           (gen/nemesis nil)
+                           (gen/time-limit (:time-limit opts)))
+                      (gen/sleep (:recovery-time opts))
+                      (gen/clients nil))
          :checker   (checker/compose
                       {:perf       (checker/perf)
                        :sequential (checker)})}))))
