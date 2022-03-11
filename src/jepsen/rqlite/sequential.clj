@@ -4,8 +4,11 @@
             [jepsen.generator :as gen]
             [clojure.core.reducers :as r]
             [knossos.op :as op]
-            [jepsen.rqlite :as rqlite]
-            [jepsen.cli :as cli])
+            [jepsen.rqlite.common :as rqlite]
+            [jepsen.cli :as cli]
+            [jepsen.tests :as tests]
+            [jepsen.os.debian :as debian]
+            [jepsen.os.ubuntu :as ubuntu])
   (:import com.rqlite.Rqlite)
   (:import com.rqlite.RqliteFactory
            (com.rqlite.dto QueryResults)
@@ -33,6 +36,16 @@
   [key-count k]
   (mapv (partial str k "_") (range key-count)))
 
+(defn query-results-value
+  "Returns the only value returned from the query"
+  [results]
+  (do (assert (instance? QueryResults results))
+      (->> (.-results results)
+           first
+           .-values
+           first
+           first)))
+
 (defrecord Client [table-count table-created? conn]
   jepsen.client/Client
   (open! [this test node]
@@ -56,7 +69,7 @@
         :read (->> ks
                    reverse
                    (mapv (fn [k]
-                           (rqlite/query-results-value
+                           (query-results-value
                              (.Query conn (str "SELECT key FROM "
                                                (key->table table-count k)
                                                " WHERE key = '" k "'") Rqlite$ReadConsistencyLevel/STRONG))))
@@ -125,12 +138,32 @@
          :bad-count  (count bad)
          :bad        bad}))))
 
+(defn rqlite-test
+  "Given an options map from the command line runner (e.g. :nodes, :ssh,
+  :concurrency, ...), constructs a test map."
+  [opts]
+  (merge tests/noop-test
+         opts
+         {:name            "rqlite"
+          :os              debian/os
+          :db              (rqlite/db "v7.3.1")
+          :client          (:client (:client opts))
+          :pure-generators true
+          :generator       (gen/phases
+                             (->> (:during (:client opts))
+                                  (gen/nemesis nil)
+                                  (gen/time-limit (:time-limit opts)))
+                             (gen/sleep (:recovery-time opts))
+                             (gen/clients (:final (:client opts))))}))
+
+
 (defn sequential-test
   [opts]
   (let [gen (gen 4)
         keyrange (atom 0)]
-    (rqlite/rqlite-test
+    (rqlite-test
       (merge
+        opts
         {:name      "sequential"
          :key-count 5
          :keyrange  keyrange
@@ -139,14 +172,5 @@
                      :final  nil}
          :checker   (checker/compose
                       {:perf       (checker/perf)
-                       :sequential (checker)})}
-        opts))))
+                       :sequential (checker)})}))))
 
-
-(defn -main
-  "Handles command line arguments. Can either run a test, or a web server for
-  browsing results."
-  [& args]
-  (cli/run! (merge (cli/single-test-cmd {:test-fn sequential-test})
-                   (cli/serve-cmd))
-            args))
