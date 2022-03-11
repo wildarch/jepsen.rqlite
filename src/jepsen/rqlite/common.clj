@@ -63,7 +63,7 @@
         :--bootstrap-expect (count (:nodes test))
         :--join (initial-cluster test node)
         (data-dir node)))
-      (Thread/sleep 1000))
+      (Thread/sleep 5000))
 
     (teardown! [_ test node]
       (info node "tearing down rqlite")
