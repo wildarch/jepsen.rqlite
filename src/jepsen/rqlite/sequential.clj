@@ -35,7 +35,7 @@
   [results]
   (do (assert (instance? QueryResults results))
       (->> (.-results results)
-           first
+           (aget 0)
            .-values
            first
            first)))
