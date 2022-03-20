@@ -94,6 +94,7 @@
          {:name "register"
           :client (Client. (atom false) nil)
           :nemesis         (nemesis/partition-random-halves)
+          ;:nemesis         (nemesis/hammer-time "rqlited")
           :checker (checker/compose
                     {:perf   (checker/perf)
                      :linear (checker/linearizable
