@@ -55,7 +55,10 @@
           :read (let [results
                       (.Query conn
                               (str "SELECT val from test where id = " k)
-                              com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)]
+                              ; If quorum reads are enabled, use strong read consistency level
+                              (if (:quorum test)
+                                com.rqlite.Rqlite$ReadConsistencyLevel/STRONG
+                                com.rqlite.Rqlite$ReadConsistencyLevel/NONE))]
                   (assoc op :type :ok, :value (independent/tuple k (query-value results))))
 
           :write (let [results (.Execute conn (str
