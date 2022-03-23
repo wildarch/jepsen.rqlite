@@ -1,7 +1,8 @@
 (ns jepsen.rqlite
   (:require [jepsen [cli :as cli]]
             [jepsen.rqlite.register :as register]
-            [jepsen.rqlite.comments :as comments]))
+            [jepsen.rqlite.comments :as comments]
+            [jepsen.rqlite.sequential :as sequential]))
 
 (def cli-opts
   "Additional command line options."
@@ -28,7 +29,8 @@
   browsing results."
   [& args]
   (cli/run! (merge (cli/test-all-cmd {:tests-fn (fn [opts] [(register/test opts)
-                                                            (comments/test opts)])
+                                                            (comments/test opts)
+                                                            (sequential/test opts)])
                                       :opt-spec cli-opts})
                    (cli/serve-cmd))
             args))
