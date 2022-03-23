@@ -1,4 +1,16 @@
 (ns jepsen.rqlite.sequential
+  "A sequential consistency test.
+
+  Verify that client order is consistent with DB order by performing queries
+  (in four distinct transactions) like
+  A: insert x
+  A: insert y
+  B: read y
+  B: read x
+
+  A's process order enforces that x must be visible before y, so we should
+  always read both or neither."
+  (:refer-clojure :exclude [test])
   (:require [clojure.tools.logging :refer :all]
             [jepsen.checker :as checker]
             [jepsen.generator :as gen]
@@ -45,7 +57,9 @@
 
 (defrecord Client [table-count table-created? conn]
   jepsen.client/Client
+
   (open! [this test node]
+    (Thread/sleep 3000)
     (assoc this :conn (RqliteFactory/connect "http" node (int 4001))))
 
   (setup! [this test]
@@ -67,9 +81,9 @@
                    reverse
                    (mapv (fn [k]
                            (query-results-value
-                             (.Query conn (str "SELECT key FROM "
-                                               (key->table table-count k)
-                                               " WHERE key = '" k "'") Rqlite$ReadConsistencyLevel/STRONG))))
+                            (.Query conn (str "SELECT key FROM "
+                                              (key->table table-count k)
+                                              " WHERE key = '" k "'") Rqlite$ReadConsistencyLevel/STRONG))))
                    (vector (:value op))
                    (assoc op :type :ok, :value)))))
 
@@ -78,7 +92,6 @@
       (.Execute conn (str "DROP TABLE IF EXISTS " t))))
 
   (close! [_ test]))
-
 
 (defn writes
   "We emit sequential integer keys for writes, logging the most recent n keys
@@ -101,8 +114,8 @@
   "Basic generator with n writers, and a buffer of 2n"
   [n]
   (let [last-written (atom
-                       (reduce conj PersistentQueue/EMPTY
-                               (repeat (* 2 n) nil)))]
+                      (reduce conj PersistentQueue/EMPTY
+                              (repeat (* 2 n) nil)))]
     (gen/reserve n (writes last-written)
                  (reads last-written))))
 
@@ -135,19 +148,19 @@
          :bad-count  (count bad)
          :bad        bad}))))
 
-(defn sequential-test
+(defn test
   [opts]
   (let [gen (gen 4)
         keyrange (atom 0)]
-    (rqlite/basic-test
-      (merge
-        {:name      "sequential"
-         :key-count 5
-         :keyrange  keyrange
-         :client    {:client (Client. 10 (atom false) nil)
-                     :during (gen/stagger 1/100 gen)
-                     :final  nil}
-         :checker   (checker/compose
-                      {:perf       (checker/perf)
-                       :sequential (checker)})}
-        opts))))
+    (merge rqlite/basic-test
+           {:name      "sequential"
+            :key-count 5
+            :keyrange  keyrange
+            :client    (Client. 10 (atom false) nil)
+            :generator (->>
+                        (gen/stagger 1/100 gen)
+                        (gen/time-limit 30))
+            :checker   (checker/compose
+                        {:perf       (checker/perf)
+                         :sequential (checker)})}
+           opts)))

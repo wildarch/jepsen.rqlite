@@ -1,5 +1,5 @@
 (ns jepsen.rqlite.register
-  (:refer-clojure :exclude [test fake-test])
+  (:refer-clojure :exclude [test])
   (:require [clojure.tools.logging :refer :all]
             [clojure.string :as str]
             [jepsen [checker :as checker]
