@@ -151,7 +151,7 @@
 (defn test
   [opts]
   (let [gen (gen 4)
-        keyrange (atom 0)]
+        keyrange (atom {})]
     (merge rqlite/basic-test
            {:name      "sequential"
             :key-count 5
@@ -160,7 +160,5 @@
             :generator (->>
                         (gen/stagger 1/100 gen)
                         (gen/time-limit 30))
-            :checker   (checker/compose
-                        {:perf       (checker/perf)
-                         :sequential (checker)})}
+            :checker   (checker)}
            opts)))
