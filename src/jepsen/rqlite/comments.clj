@@ -20,7 +20,7 @@
              [reconnect :as rc]
              [nemesis :as nemesis]]
             [jepsen.rqlite.common :as rqlite]
-
+             [jepsen.rqlite.nemesis :as nem]
             [clojure.core.reducers :as r]
             [clojure.set :as set]
             [clojure.tools.logging :refer :all]
@@ -99,7 +99,19 @@
              (independent/tuple (key (:value op)))
              (assoc op :type :ok, :value)
 
-             ))))
+             ))
+      (catch com.rqlite.NodeUnavailableException e
+        (error "Node unavailable")
+        (assoc op :type :fail , :error :not-found))
+
+      (catch java.lang.NullPointerException e
+        (error "Connection error")
+        (assoc op
+              :type  (if (= :read (:f op)) :fail :info)
+              :error :connection-lost))   
+             
+             
+             ))
 
   (teardown! [this test]
     nil)
@@ -170,14 +182,25 @@
     (merge rqlite/basic-test
            {:name "comments"
             :client (Client. 5 (atom false) nil)
+            :nemesis (case (:nemesis-type opts)
+                     :partition (nemesis/partition-random-halves)
+                     :hammer (nemesis/hammer-time "rqlited")
+                     :flaky (nem/flaky)
+                     :slow (nem/slow 1.0))          
             :generator  (->> (independent/concurrent-generator
-                              5
-                              (range 5)
+                            (:concurrency opts)
+                              (range)
                               (fn [k]
                                 (->> (gen/mix [reads writes])
-                                     (gen/stagger 1/100)
-                                     (gen/limit 100))))
-                             (gen/time-limit 30))
+                                     (gen/stagger (/ (:rate opts)))
+                                     (gen/limit (:ops-per-key opts)))))
+                              (gen/time-limit 30) 
+                              (gen/nemesis
+                                (cycle [(gen/sleep 5)
+                                    {:type :info, :f :start}
+                                    (gen/sleep 5)
+                                    {:type :info, :f :stop}]))
+                             )
             :checker (checker/compose
                               {:perf       (checker/perf)
                                :sequential (independent/checker (checker))})}

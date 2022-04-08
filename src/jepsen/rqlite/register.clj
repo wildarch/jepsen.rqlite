@@ -93,7 +93,7 @@
           (error "Connection error")
           (assoc op
                  :type  (if (= :read (:f op)) :fail :info)
-                 :error :connection-lost)))))
+                 :error :connection-lost)) )))
 
   (teardown! [this test])
 

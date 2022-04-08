@@ -30,9 +30,10 @@
   "Handles command line arguments. Can either run a test, or a web server for
   browsing results."
   [& args]
-  (cli/run! (merge (cli/test-all-cmd {:tests-fn (fn [opts] [(register/test opts)
+  (cli/run! (merge (cli/test-all-cmd {:tests-fn (fn [opts] [;;(register/test opts)
                                                             (comments/test opts)
-                                                            (sequential/test opts)])
+                                                            ;;(sequential/test opts)
+                                                            ])
                                       :opt-spec cli-opts})
                    (cli/serve-cmd))
             args))
