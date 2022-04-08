@@ -16,13 +16,15 @@
     :default  100
     :parse-fn #(Long/parseLong %)
     :validate [pos? "Must be a positive integer."]]
-   [nil "--nemesis-type partition|hammer" "Nemesis used."
+   [nil "--nemesis-type partition|hammer|flaky|slow" "Nemesis used."
     :default :partition
     :parse-fn #(case %
                  ("partition") :partition
                  ("hammer") :hammer
+                 ("flaky") :flaky
+                 ("slow") :slow
                  :invalid)
-    :validate [#{:partition :hammer} "Unsupported nemesis"]]])
+    :validate [#{:partition :hammer :flaky :slow} "Unsupported nemesis"]]])
 
 (defn -main
   "Handles command line arguments. Can either run a test, or a web server for

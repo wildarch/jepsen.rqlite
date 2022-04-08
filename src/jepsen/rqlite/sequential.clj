@@ -14,6 +14,7 @@
   (:require [clojure.tools.logging :refer :all]
             [jepsen.checker :as checker]
             [jepsen.generator :as gen]
+            [jepsen.nemesis :as nemesis]
             [clojure.core.reducers :as r]
             [knossos.op :as op]
             [jepsen.rqlite.common :as rqlite]
@@ -72,24 +73,34 @@
 
   (invoke! [this test op]
     (let [ks (subkeys (:key-count test) (:value op))]
-      (case (:f op)
-        :write (do (doseq [k ks]
-                     (let [table (key->table table-count k)]
-                       (.Execute conn (str "INSERT INTO " table " VALUES ('" k "')"))))
-                   (assoc op :type :ok))
-        :read (->> ks
-                   reverse
-                   (mapv (fn [k]
-                           (query-results-value
-                            (.Query conn (str "SELECT key FROM "
-                                              (key->table table-count k)
-                                              " WHERE key = '" k "'") Rqlite$ReadConsistencyLevel/STRONG))))
-                   (vector (:value op))
-                   (assoc op :type :ok, :value)))))
+      (try
+        (case (:f op)
+          :write (do (doseq [k ks]
+                       (let [table (key->table table-count k)]
+                         (.Execute conn (str "INSERT INTO " table " VALUES ('" k "')"))))
+                     (assoc op :type :ok))
+          :read (->> ks
+                     reverse
+                     (mapv (fn [k]
+                             (query-results-value
+                              (.Query conn (str "SELECT key FROM "
+                                                (key->table table-count k)
+                                                " WHERE key = '" k "'") (if (:quorum test)
+                                                                          Rqlite$ReadConsistencyLevel/STRONG
+                                                                          Rqlite$ReadConsistencyLevel/NONE)))))
+                     (vector (:value op))
+                     (assoc op :type :ok, :value)))
+        (catch com.rqlite.NodeUnavailableException e
+          (error "Node unavailable")
+          (assoc op :type :fail , :error :not-found))
 
-  (teardown! [this test]
-    (doseq [t (table-names table-count)]
-      (.Execute conn (str "DROP TABLE IF EXISTS " t))))
+        (catch java.lang.NullPointerException e
+          (error "Connection error")
+          (assoc op
+                 :type  (if (= :read (:f op)) :fail :info)
+                 :error :connection-lost)))))
+
+  (teardown! [this test])
 
   (close! [_ test]))
 
@@ -151,16 +162,22 @@
 (defn test
   [opts]
   (let [gen (gen 4)
-        keyrange (atom 0)]
+        keyrange (atom {})]
     (merge rqlite/basic-test
            {:name      "sequential"
             :key-count 5
             :keyrange  keyrange
             :client    (Client. 10 (atom false) nil)
+            :nemesis (case (:nemesis-type opts)
+                       :partition (nemesis/partition-random-halves)
+                       :hammer (nemesis/hammer-time "rqlited"))
             :generator (->>
                         (gen/stagger 1/100 gen)
+                        (gen/nemesis
+                         (cycle [(gen/sleep 5)
+                                 {:type :info, :f :start}
+                                 (gen/sleep 5)
+                                 {:type :info, :f :stop}]))
                         (gen/time-limit 30))
-            :checker   (checker/compose
-                        {:perf       (checker/perf)
-                         :sequential (checker)})}
+            :checker   (checker)}
            opts)))

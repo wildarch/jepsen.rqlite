@@ -9,6 +9,7 @@
              [independent :as independent]
              [nemesis :as nemesis]]
             [jepsen.rqlite.common :as rqlite]
+            [jepsen.rqlite.nemesis :as nem]
             [jepsen.checker.timeline :as timeline]
             [knossos.model :as model])
   (:import com.rqlite.Rqlite)
@@ -107,7 +108,9 @@
           :client (Client. (atom false) nil)
           :nemesis (case (:nemesis-type opts)
                      :partition (nemesis/partition-random-halves)
-                     :hammer (nemesis/hammer-time "rqlited"))
+                     :hammer (nemesis/hammer-time "rqlited")
+                     :flaky (nem/flaky)
+                     :slow (nem/slow 1.0))
           :checker (checker/compose
                     {:perf   (checker/perf)
                      :indep (independent/checker
