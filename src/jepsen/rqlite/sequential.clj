@@ -18,6 +18,7 @@
             [clojure.core.reducers :as r]
             [knossos.op :as op]
             [jepsen.rqlite.common :as rqlite]
+            [jepsen.rqlite.nemesis :as nem]
             [jepsen.cli :as cli])
   (:import com.rqlite.Rqlite)
   (:import com.rqlite.RqliteFactory
@@ -170,7 +171,9 @@
             :client    (Client. 10 (atom false) nil)
             :nemesis (case (:nemesis-type opts)
                        :partition (nemesis/partition-random-halves)
-                       :hammer (nemesis/hammer-time "rqlited"))
+                       :hammer (nemesis/hammer-time "rqlited")
+                       :flaky (nem/flaky)
+                       :slow (nem/slow 1.0))
             :generator (->>
                         (gen/stagger 1/100 gen)
                         (gen/nemesis
