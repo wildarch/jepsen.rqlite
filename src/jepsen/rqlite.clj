@@ -6,25 +6,31 @@
 
 (def cli-opts
   "Additional command line options."
-  [["-q" "--quorum" "Use quorum reads, instead of reading from a likely leader node."
-    :default true]
+  [[nil "--read-consistency none|weak|strong" "Set consistency level for reads."
+    :default :strong
+    :parse-fn #(case %
+                 ("none") :none
+                 ("weak") :weak
+                 ("strong") :strong)
+    :validate [#{:none :weak :strong} "Unsupported read consistency"]]
    ["-r" "--rate HZ" "Approximate number of requests per second, per thread."
     :default  50
     :parse-fn read-string
     :validate [#(and (number? %) (pos? %)) "Must be a positive number"]]
    [nil "--ops-per-key NUM" "Maximum number of operations on any given key."
-    :default  100
+    :default  1000
     :parse-fn #(Long/parseLong %)
     :validate [pos? "Must be a positive integer."]]
-   [nil "--nemesis-type partition|hammer|flaky|slow" "Nemesis used."
+   [nil "--nemesis-type partition|hammer|flaky|slow|noop" "Nemesis used."
     :default :partition
     :parse-fn #(case %
                  ("partition") :partition
                  ("hammer") :hammer
                  ("flaky") :flaky
                  ("slow") :slow
+                ("noop") :noop
                  :invalid)
-    :validate [#{:partition :hammer :flaky :slow} "Unsupported nemesis"]]])
+    :validate [#{:partition :hammer :flaky :slow :noop} "Unsupported nemesis"]]])
 
 (defn -main
   "Handles command line arguments. Can either run a test, or a web server for

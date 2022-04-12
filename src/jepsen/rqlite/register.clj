@@ -56,10 +56,11 @@
           :read (let [results
                       (.Query conn
                               (str "SELECT val from test where id = " k)
-                              ; If quorum reads are enabled, use strong read consistency level
-                              (if (:quorum test)
-                                com.rqlite.Rqlite$ReadConsistencyLevel/STRONG
-                                com.rqlite.Rqlite$ReadConsistencyLevel/NONE))]
+                              (case (:read-consistency test)
+                                :none com.rqlite.Rqlite$ReadConsistencyLevel/NONE
+                                :weak com.rqlite.Rqlite$ReadConsistencyLevel/WEAK
+                                :strong com.rqlite.Rqlite$ReadConsistencyLevel/STRONG))]
+
                   (assoc op :type :ok, :value (independent/tuple k (query-value results))))
 
           :write (let [results (.Execute conn (str
@@ -110,7 +111,8 @@
                      :partition (nemesis/partition-random-halves)
                      :hammer (nemesis/hammer-time "rqlited")
                      :flaky (nem/flaky)
-                     :slow (nem/slow 1.0))
+                     :slow (nem/slow 1.0)
+                     :noop nemesis/noop)
           :checker (checker/compose
                     {:perf   (checker/perf)
                      :indep (independent/checker
@@ -133,5 +135,6 @@
                                     {:type :info, :f :start}
                                     (gen/sleep 5)
                                     {:type :info, :f :stop}]))
-                           (gen/time-limit (:time-limit opts)))}
+                           (gen/time-limit (:time-limit opts)))
+          :read-consistency (:read-consistency opts)}
          opts))

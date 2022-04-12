@@ -20,7 +20,7 @@
              [reconnect :as rc]
              [nemesis :as nemesis]]
             [jepsen.rqlite.common :as rqlite]
-
+            [jepsen.rqlite.nemesis :as nem]
             [clojure.core.reducers :as r]
             [clojure.set :as set]
             [clojure.tools.logging :refer :all]
@@ -28,7 +28,7 @@
             [knossos.op :as op])
   (:import com.rqlite.Rqlite)
   (:import com.rqlite.RqliteFactory
-         (com.rqlite.dto QueryResults))
+           (com.rqlite.dto QueryResults))
   (:import (knossos.model Model)))
 
 (def table-prefix "String prepended to all table names." "comment_")
@@ -58,7 +58,6 @@
            first
            first)))
 
-
 (defrecord Client [table-count table-created? conn]
   jepsen.client/Client
 
@@ -72,7 +71,7 @@
         (info "Creating tables")
         (doseq [t (table-names table-count)]
           (.Execute conn (str "create table " t
-                                " (id int primary key,
+                              " (id int primary key,
                                            key int)"))
           (info "Created table")))))
 
@@ -89,17 +88,18 @@
         :read
         (->> (table-names table-count)
              (mapcat (fn [table]
-                    (query-results-value
-                       (.Query conn (str "SELECT id FROM "
-                                              table
-                                              " WHERE key = " (key (:value op)) ) com.rqlite.Rqlite$ReadConsistencyLevel/STRONG
-                                          ))))
-             ;;(map :id)
+                       (query-results-value
+                        (.Query conn
+                                (str "SELECT id FROM "
+                                     table
+                                     " WHERE key = " (key (:value op)))
+                                (case (:read-consistency test)
+                                  :none com.rqlite.Rqlite$ReadConsistencyLevel/NONE
+                                  :weak com.rqlite.Rqlite$ReadConsistencyLevel/WEAK
+                                  :strong com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))))
              (into (sorted-set))
              (independent/tuple (key (:value op)))
-             (assoc op :type :ok, :value)
-
-             ))))
+             (assoc op :type :ok, :value)))))
 
   (teardown! [this test]
     nil)
@@ -123,19 +123,19 @@
                          ; We know this value is definitely written
                          (= :write (:f op))
                          (cond ; Write is beginning; record precedence
-                               (op/invoke? op)
-                               (recur completed
-                                      (assoc expected (:value op) completed)
-                                      more)
+                           (op/invoke? op)
+                           (recur completed
+                                  (assoc expected (:value op) completed)
+                                  more)
 
                                ; Write is completing; we can now expect to see
                                ; it
-                               (op/ok? op)
-                               (recur (conj completed (:value op))
-                                      expected more)
+                           (op/ok? op)
+                           (recur (conj completed (:value op))
+                                  expected more)
 
-                               true
-                               (recur completed expected more))
+                           true
+                           (recur completed expected more))
 
                          true
                          (recur completed expected more)))
@@ -170,6 +170,12 @@
     (merge rqlite/basic-test
            {:name "comments"
             :client (Client. 5 (atom false) nil)
+            :nemesis (case (:nemesis-type opts)
+                      :partition (nemesis/partition-random-halves)
+                      :hammer (nemesis/hammer-time "rqlited")
+                      :flaky (nem/flaky)
+                      :slow (nem/slow 1.0)
+                      :noop nemesis/noop)
             :generator  (->> (independent/concurrent-generator
                               5
                               (range 5)
@@ -177,8 +183,9 @@
                                 (->> (gen/mix [reads writes])
                                      (gen/stagger 1/100)
                                      (gen/limit 100))))
-                             (gen/time-limit 30))
+                             (gen/time-limit (:time-limit opts)))
             :checker (checker/compose
-                              {:perf       (checker/perf)
-                               :sequential (independent/checker (checker))})}
+                      {:perf       (checker/perf)
+                       :sequential (independent/checker (checker))})
+            :read-consistency (:read-consistency opts)}
            opts)))

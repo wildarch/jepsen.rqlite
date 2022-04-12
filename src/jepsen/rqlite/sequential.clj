@@ -84,11 +84,15 @@
                      reverse
                      (mapv (fn [k]
                              (query-results-value
-                              (.Query conn (str "SELECT key FROM "
-                                                (key->table table-count k)
-                                                " WHERE key = '" k "'") (if (:quorum test)
-                                                                          Rqlite$ReadConsistencyLevel/STRONG
-                                                                          Rqlite$ReadConsistencyLevel/NONE)))))
+                              (.Query conn
+                                      (str "SELECT key FROM "
+                                           (key->table table-count k)
+                                           " WHERE key = '" k "'")
+                                      (case (:read-consistency test)
+                                        :none com.rqlite.Rqlite$ReadConsistencyLevel/NONE
+                                        :weak com.rqlite.Rqlite$ReadConsistencyLevel/WEAK
+                                        :strong com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))))
+
                      (vector (:value op))
                      (assoc op :type :ok, :value)))
         (catch com.rqlite.NodeUnavailableException e
@@ -170,10 +174,11 @@
             :keyrange  keyrange
             :client    (Client. 10 (atom false) nil)
             :nemesis (case (:nemesis-type opts)
-                       :partition (nemesis/partition-random-halves)
-                       :hammer (nemesis/hammer-time "rqlited")
-                       :flaky (nem/flaky)
-                       :slow (nem/slow 1.0))
+                      :partition (nemesis/partition-random-halves)
+                      :hammer (nemesis/hammer-time "rqlited")
+                      :flaky (nem/flaky)
+                      :slow (nem/slow 1.0)
+                      :noop nemesis/noop)
             :generator (->>
                         (gen/stagger 1/100 gen)
                         (gen/nemesis
@@ -181,6 +186,7 @@
                                  {:type :info, :f :start}
                                  (gen/sleep 5)
                                  {:type :info, :f :stop}]))
-                        (gen/time-limit 30))
-            :checker   (checker)}
+                        (gen/time-limit (:time-limit opts)))
+            :checker   (checker)
+            :read-consistency (:read-consistency opts)}
            opts)))
