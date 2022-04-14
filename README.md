@@ -1,22 +1,23 @@
 # jepsen.rqlite
 
-A Clojure library designed to ... well, that part is up to you.
+Jepsen tests for the [rqlite](https://github.com/rqlite/rqlite) database.
 
 ## Usage
 
-FIXME
+Running the tests requires that you have [Vagrant](https://www.vagrantup.com/) to start the virtual machines, and
+Clojure's package manager [leiningen](https://leiningen.org/) to build and run the actual test code.
 
-## License
+Once you have all the necessary dependencies installed, running the tests is as simple as:
 
-Copyright © 2022 FIXME
+```shell
+./run.sh
+```
 
-This program and the accompanying materials are made available under the
-terms of the Eclipse Public License 2.0 which is available at
-http://www.eclipse.org/legal/epl-2.0.
+This will start the virtual machines for you and invoke leiningen to run the tests. You can refer
+to `src/jepsen/rqlite.clj` for command-line options such as the `--nemesis-type` flag to select the nemesis used. They can be passed directly to the script:
 
-This Source Code may also be made available under the following Secondary
-Licenses when the conditions for such availability set forth in the Eclipse
-Public License, v. 2.0 are satisfied: GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or (at your
-option) any later version, with the GNU Classpath Exception which is available
-at https://www.gnu.org/software/classpath/license.html.
+```shell
+./run.sh --nemesis-type pause
+```
+
+For more details, check out our [blog post](https://github.com/wildarch/jepsen.rqlite/blob/main/doc/blog.md).
