@@ -76,7 +76,7 @@ us to be nearly as effective at testing as the original approach. In our testing
 1000 operations, for which knossos can easily verify linearizability in a few seconds on the author’s laptop.
 
 That concludes all of our tests for linearizability and sequential consistency. In the next section we cover how to
-inject faults into the tests, and test that RQLite can correctly handle them.
+inject faults into the tests, and test that rqlite can correctly handle them.
 
 # Nemeses
 
@@ -167,18 +167,16 @@ setup, so we implemented a custom nemesis, again using Traffic Control APIs.
 
 We are happy to report that with strong read consistency enabled, Rqlite passed all our tests with flying colours. This
 is not a proof that rqlite provides linearizability, as it may violate those requirements in situations we have not
-tested here, but the fact that we found no violations is a step towards that proof. It shows that even in the presence
-of faults, rqlite provides linearizability in many cases. Even though this is not explicitly documented, rqlite also
-appears to respect client order in the processing of transactions, as this is one of the assumptions required for the
-sequential test to pass. One thing we have observed is that with nemeses enabled, rqlite struggles to maintain
-acceptable tail latency. The graph below shows the throughput of the cluster during the register test, with a
-partitioning nemesis enabled:
+tested here. Even though this is not explicitly documented, rqlite also appears to respect client order in the
+processing of transactions, as this is one of the assumptions required for the sequential test to pass. One thing we
+have observed is that with nemeses enabled, rqlite struggles to maintain acceptable tail latency. The graph below shows
+the throughput of the cluster during the register test, with a partitioning nemesis enabled.
 
 ![](register_rate.png)
 
 Based on this graph, it appears rqlite achieves up to 40 transactions per second, which considerably less than the 50Hz
 at which our tests send transactions. The reason for this appears to be that a few transactions take extremely long, as
-shown in the graph below:
+shown in the graph below.
 
 ![](register_latency.png)
 
@@ -193,10 +191,11 @@ consistency of the system. We conclude that for common situations as well as exc
 rqlite maintains linearizability of record insertion and modification, provided strong read consistency is enabled, as
 evident from the tests and nemesis we have developed. This by no means constitutes a formal proof that rqlite indeed
 upholds linearizability in the general case, but it suggests that rqlite is designed to provide linearizability, and
-should provide users of the system with more confidence in the implementation. There is opportunity for more Jepsen
-tests to be added to our setup. Common examples from other Jepsen test suites include
-a [‘bank’](https://github.com/jepsen-io/jepsen/blob/main/cockroachdb/src/jepsen/cockroach/bank.clj) test for transfers
-between rows of a shared table
+should provide users of the system with more confidence in the implementation.
+
+There is opportunity for more Jepsen tests to be added to our setup. Common examples from other Jepsen test suites
+include a [‘bank’](https://github.com/jepsen-io/jepsen/blob/main/cockroachdb/src/jepsen/cockroach/bank.clj) test for
+transfers between rows of a shared table
 and [‘sets’](https://github.com/jepsen-io/jepsen/blob/main/cockroachdb/src/jepsen/cockroach/sets.clj) for concurrent
 unique appends to a table. Similarly more nemesis could be introduced, such as a nemesis to randomly kill and restart
 nodes. We intend to discuss with rqlite’s maintainers if the jepsen tests could be added to their testing setup and
