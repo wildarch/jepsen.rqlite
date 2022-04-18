@@ -53,10 +53,13 @@ Splits keys up onto different tables to make sure they fall in different shard r
 Read: "SELECT id FROM table WHERE key = "
 Write: "INSERT INTO table VALUES ('" id "," k "')"
 
+![Comments example](comments.png)
+
 Now that the history is generated, a custom implemented checker checks for violations. 
 
 ## Sequential
 
+![Sequential example](sequential.png)
 ## Register
 
 The register test checks linearizability of accesses on independent registers, or individual rows in a table. We start
