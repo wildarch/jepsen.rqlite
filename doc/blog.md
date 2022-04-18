@@ -51,8 +51,8 @@ If w_i is visible, and some w_j < w_i is not visible,
 we've found a violation of strict serializability.
 Splits keys up onto different tables to make sure they fall in different shard ranges
 
-Read: "SELECT id FROM table WHERE key = "
-Write: "INSERT INTO table VALUES ('" id "," k "')"
+- Read: "SELECT id FROM table WHERE key = "
+- Write: "INSERT INTO table VALUES ('" id "," k "')"
 
 ![Comments example](comments.png)
 
@@ -73,10 +73,10 @@ always read both or neither.
 
 We emit sequential integer keys for writes, logging the most recent n keys
 in the given atom, wrapping a PersistentQueue.
-Write: "INSERT INTO " table " VALUES ('" k "')"
+- Write: "INSERT INTO " table " VALUES ('" k "')"
 We use the last-written atom to perform a read of a randomly selected
 recently written value.
-Read: "SELECT key FROM (key->table table-count k) WHERE key = '" k "'"
+- Read: "SELECT key FROM (key->table table-count k) WHERE key = '" k "'"
  
 A custom implemented checker checks for violations of the history logs. 
  
