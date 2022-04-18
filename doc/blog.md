@@ -8,15 +8,33 @@ TODO
 
 # What is rqlite?
 
-TODO
+Rqlite is an easy-to-use, lightweight, distributed relational database, which uses SQLlite as its storage engine. 
+Each rqlite node exposes an HTTP API allowing data to be inserted into and read back from the database. An HTTP API is an API that uses Hypertext Transfer Protocol as the communication protocol between the two systems. 
+Rqlite provides data durability via the Raft consensus system.  Every change made to the SQLite database is written to the Raft log, and that log is by default persisted to disk. The Raft log contains SQL statements and is used to distribute SQL statements to all nodes. 
+once a log entry reaches a majority of nodes, the SQL statement can be applied to each SQL state.
+The statements must be deterministic.
+In the event of a restart or recovery operation, the SQLite database is completely rebuilt from the data contained in the Raft log. 
 
 # Test Setup
 
-TODO
+For the test a cluster is set up with 5 Vagrant virtual machines that run Debian 11 Bullseye. 
+The machines are run on a fully connected private network.
+Rqlite version 7.3.1 is used. 
+As a Test framework we use Jepsen and Knossos and the Rqlite-java client library.
 
 # Jepsen Tests
 
 ## Comments
+
+The comments test checks for strict serializability. 
+Checks for a strict serializability anomaly in which T1 < T2, but T2 is visible without T1.
+We perform concurrent blind inserts across n tables, and meanwhile, perform reads of both tables in a transaction. 
+To verify, we replay the history, tracking the writes which were known to have completed before the invocation of any write w_i. 
+If w_i is visible, and some w_j < w_i is not visible,
+we've found a violation of strict serializability.
+Splits keys up onto different tables to make sure they fall in different shard ranges
+
+'''sql
 
 ## Sequential
 
