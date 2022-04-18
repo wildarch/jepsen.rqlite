@@ -61,6 +61,9 @@ To now verify the correctness, the history is replayed to check for violations. 
 ## Sequential
 
 The sequential test check for sequential consistency. 
+Any execution is the same as if all read/write ops were
+executed in some global ordering, and the ops of each client
+process appear in the order specified by its program. 
 If a process order enforces that x must be visible before y, we should
 always read both or neither.
 
