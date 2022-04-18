@@ -28,13 +28,32 @@ As a Test framework we use Jepsen and Knossos and the Rqlite-java client library
 
 The comments test checks for strict serializability. 
 Checks for a strict serializability anomaly in which T1 < T2, but T2 is visible without T1.
+ 
+
+```sql
+CREATE TABLE Test
+(
+    id  INT PRIMARY KEY,
+    key INT
+);
+INSERT INTO Test
+VALUES ((0, 1),
+        (0, 2),
+           /* ... */,
+        (5, 98   
+        (5, 99));
+```
+
 We perform concurrent blind inserts across n tables, and meanwhile, perform reads of both tables in a transaction. 
 To verify, we replay the history, tracking the writes which were known to have completed before the invocation of any write w_i. 
 If w_i is visible, and some w_j < w_i is not visible,
 we've found a violation of strict serializability.
 Splits keys up onto different tables to make sure they fall in different shard ranges
 
-'''sql
+Read: "SELECT id FROM table WHERE key = "
+Write: "INSERT INTO table VALUES ('" id "," k "')"
+
+Now that the history is generated, a custom implemented checker checks for violations. 
 
 ## Sequential
 
