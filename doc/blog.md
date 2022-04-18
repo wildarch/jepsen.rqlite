@@ -4,7 +4,7 @@
 [Ruben van Baarle](https://github.com/RvanBaarle)
 and [Daan de Graaf](https://github.com/wildarch/jepsen.rqlite)*.
 
-TODO
+
 
 # What is rqlite?
 
@@ -26,8 +26,9 @@ As a Test framework we use Jepsen and Knossos and the Rqlite-java client library
 
 ## Comments
 
-The comments test checks for strict serializability. 
-Checks for a strict serializability anomaly in which T1 < T2, but T2 is visible without T1.
+The Comments test checks for strict serializability. 
+Strict serializability guarantees that operations take place atomically: a transaction's sub-operations do not appear to interleave with sub-operations from other transactions. 
+It checks for a strict serializability anomaly in which T1 < T2, but T2 is visible without T1.
  
 
 ```sql
@@ -55,11 +56,30 @@ Write: "INSERT INTO table VALUES ('" id "," k "')"
 
 ![Comments example](comments.png)
 
-Now that the history is generated, a custom implemented checker checks for violations. 
+To now verify the correctness, the history is replayed to check for violations. This is done by tracking writes which are known to be finished before Write_i.  If this Write_i is visible but any of the tracked writes is not, a violation is found
 
 ## Sequential
 
+The sequential test check for sequential consistency. 
+If a process order enforces that x must be visible before y, we should
+always read both or neither.
+
 ![Sequential example](sequential.png)
+
+
+```sql
+"CREATE TABLE " t " (key varchar(255) primary key)";
+```
+
+We emit sequential integer keys for writes, logging the most recent n keys
+in the given atom, wrapping a PersistentQueue.
+Write: "INSERT INTO " table " VALUES ('" k "')"
+We use the last-written atom to perform a read of a randomly selected
+recently written value.
+Read: "SELECT key FROM (key->table table-count k) WHERE key = '" k "'"
+ 
+A custom implemented checker checks for violations of the history logs. 
+ 
 ## Register
 
 The register test checks linearizability of accesses on independent registers, or individual rows in a table. We start
