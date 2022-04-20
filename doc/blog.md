@@ -8,7 +8,7 @@ and [Daan de Graaf](https://github.com/wildarch/jepsen.rqlite)*.
 
 # What is rqlite?
 
-Rqlite is an easy-to-use, lightweight, distributed relational database, which uses SQLlite as its storage engine. 
+[rqlite](https://github.com/rqlite/rqlite) is an easy-to-use, lightweight, distributed relational database, which uses SQLlite as its storage engine. 
 Each rqlite node exposes an HTTP API allowing data to be inserted into and read back from the database. An HTTP API is an API that uses Hypertext Transfer Protocol as the communication protocol between the two systems. 
 Rqlite provides data durability via the Raft consensus system.  Every change made to the SQLite database is written to the Raft log, and that log is by default persisted to disk. The Raft log contains SQL statements and is used to distribute SQL statements to all nodes. 
 once a log entry reaches a majority of nodes, the SQL statement can be applied to each SQL state.
