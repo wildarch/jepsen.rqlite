@@ -44,9 +44,9 @@
   (str table-prefix (mod (hash id) table-count)))
 
 (defn reads [] {:type :invoke, :f :read, :value nil})
-
+;;(defn writes   [_] {:type :invoke, :f :write, :value (rand-int 5)})
 (defn writes []
-  (->> (range)
+  (->> (range 1)
        (map (fn [k] {:type :invoke, :f :write, :value k}))))
 
 (defn query-results-value
@@ -89,17 +89,23 @@
         (->> (table-names table-count)
              (mapcat (fn [table]
                        (query-results-value
-                        (.Query conn
-                                (str "SELECT id FROM "
-                                     table
-                                     " WHERE key = " (key (:value op)))
-                                (case (:read-consistency test)
-                                  :none com.rqlite.Rqlite$ReadConsistencyLevel/NONE
-                                  :weak com.rqlite.Rqlite$ReadConsistencyLevel/WEAK
-                                  :strong com.rqlite.Rqlite$ReadConsistencyLevel/STRONG)))))
+                        (.Query conn (str "SELECT id FROM "
+                                          table
+                                          " WHERE key = " (key (:value op))) com.rqlite.Rqlite$ReadConsistencyLevel/STRONG))))
+             ;;(map :id)
              (into (sorted-set))
              (independent/tuple (key (:value op)))
-             (assoc op :type :ok, :value)))))
+             (assoc op :type :ok, :value)))
+
+      (catch com.rqlite.NodeUnavailableException e
+        (error "Node unavailable")
+        (assoc op :type :fail , :error :not-found))
+
+      (catch java.lang.NullPointerException e
+        (error "Connection error")
+        (assoc op
+               :type  (if (= :read (:f op)) :fail :info)
+               :error :connection-lost))))
 
   (teardown! [this test]
     nil)
@@ -171,21 +177,24 @@
            {:name "comments"
             :client (Client. 5 (atom false) nil)
             :nemesis (case (:nemesis-type opts)
-                      :partition (nemesis/partition-random-halves)
-                      :hammer (nemesis/hammer-time "rqlited")
-                      :flaky (nem/flaky)
-                      :slow (nem/slow 1.0)
-                      :noop nemesis/noop)
+                       :partition (nemesis/partition-random-halves)
+                       :hammer (nemesis/hammer-time "rqlited")
+                       :flaky (nem/flaky)
+                       :slow (nem/slow 1.0))
             :generator  (->> (independent/concurrent-generator
-                              5
-                              (range 5)
+                              (:concurrency opts)
+                              (range)
                               (fn [k]
                                 (->> (gen/mix [reads writes])
-                                     (gen/stagger 1/100)
-                                     (gen/limit 100))))
-                             (gen/time-limit (:time-limit opts)))
+                                     (gen/stagger (/ (:rate opts)))
+                                     (gen/limit (:ops-per-key opts)))))
+                             (gen/nemesis
+                              (cycle [(gen/sleep 5)
+                                      {:type :info, :f :start}
+                                      (gen/sleep 5)
+                                      {:type :info, :f :stop}]))
+                             (gen/time-limit 30))
             :checker (checker/compose
                       {:perf       (checker/perf)
-                       :sequential (independent/checker (checker))})
-            :read-consistency (:read-consistency opts)}
+                       :sequential (independent/checker (checker))})}
            opts)))
